@@ -5,7 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatInClass - Real-time Classroom Communication</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    
+    <!-- Firebase SDK v9 (modular) -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, push, onValue, set, onDisconnect, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Your Firebase project configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnYSeVLqYU1tYx2EGB_z15K6FG5w5Px1s",
+            authDomain: "chatinclass-2c832.firebaseapp.com",
+            databaseURL: "https://chatinclass-2c832-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "chatinclass-2c832",
+            storageBucket: "chatinclass-2c832.firebasestorage.app",
+            messagingSenderId: "973931102095",
+            appId: "1:973931102095:web:4d0b5c7c6b6ee9300f55fa"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Make Firebase available globally
+        window.firebaseApp = app;
+        window.firebaseDatabase = database;
+        window.firebaseRef = ref;
+        window.firebasePush = push;
+        window.firebaseOnValue = onValue;
+        window.firebaseSet = set;
+        window.firebaseOnDisconnect = onDisconnect;
+        window.firebaseServerTimestamp = serverTimestamp;
+        
+        console.log('Firebase initialized successfully');
+    </script>
 </head>
 <body>
     <div class="chatroom-container">
@@ -20,6 +53,12 @@
                 <button id="role-toggle" class="role-btn">Switch Role</button>
             </div>
         </header>
+
+        <!-- Connection Status -->
+        <div class="connection-status" id="connection-status">
+            <span class="status-indicator" id="status-indicator">🔴</span>
+            <span id="status-text">Connecting to Firebase...</span>
+        </div>
 
         <!-- Main Content -->
         <div class="chatroom-main">
@@ -80,9 +119,10 @@
                     <div class="welcome-message">
                         <div class="welcome-content">
                             <h3>👋 Welcome to ChatInClass!</h3>
-                            <p>Teachers can post questions and announcements</p>
-                            <p>Students can ask questions and get help instantly</p>
-                            <p>Select your role and start participating!</p>
+                            <p>Start a conversation by typing a message below</p>
+                            <p>Teachers can make announcements and ask questions</p>
+                            <p>Students can ask for help and participate in discussions</p>
+                            <p>Messages sync in real-time across all devices via Firebase!</p>
                         </div>
                     </div>
                 </div>
@@ -168,6 +208,6 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="firebase-app.js"></script>
 </body>
 </html>
