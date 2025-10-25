@@ -1,9 +1,11 @@
 class ChatInClassFirebase {
     constructor() {
         this.currentUser = {
+            username: '',
             name: '',
             role: '', // 'teacher' or 'student'
-            id: this.generateUserId()
+            id: this.generateUserId(),
+            isAuthenticated: false
         };
         this.currentSubject = 'general';
         this.onlineUsers = new Map();
@@ -32,7 +34,7 @@ class ChatInClassFirebase {
 
     init() {
         this.setupEventListeners();
-        this.showRoleModal();
+        this.checkExistingSession();
         this.updateOnlineCount();
         this.setupFirebaseListeners();
         this.updateConnectionStatus(true);
@@ -93,6 +95,29 @@ class ChatInClassFirebase {
     }
 
     setupEventListeners() {
+        // Authentication tabs
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                this.switchAuthTab(e.currentTarget.dataset.tab);
+            });
+        });
+
+        // Login form
+        document.getElementById('login-btn').addEventListener('click', () => {
+            this.handleLogin();
+        });
+
+        document.getElementById('login-password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.handleLogin();
+            }
+        });
+
+        // Register form
+        document.getElementById('register-btn').addEventListener('click', () => {
+            this.handleRegister();
+        });
+
         // Role selection
         document.querySelectorAll('.role-option').forEach(option => {
             option.addEventListener('click', (e) => {
@@ -102,24 +127,30 @@ class ChatInClassFirebase {
 
         // Name input
         const nameInput = document.getElementById('user-name');
-        nameInput.addEventListener('input', () => {
-            this.validateJoinButton();
-        });
+        if (nameInput) {
+            nameInput.addEventListener('input', () => {
+                this.validateJoinButton();
+            });
 
-        nameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !document.getElementById('join-chatroom').disabled) {
-                this.joinChatroom();
-            }
-        });
+            nameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !document.getElementById('join-chatroom').disabled) {
+                    this.joinChatroom();
+                }
+            });
+        }
 
         // Join chatroom
         document.getElementById('join-chatroom').addEventListener('click', () => {
             this.joinChatroom();
         });
 
-        // Role toggle
+        // Role toggle / Logout
         document.getElementById('role-toggle').addEventListener('click', () => {
-            this.showRoleModal();
+            if (this.currentUser.isAuthenticated) {
+                this.handleLogout();
+            } else {
+                this.showRoleModal();
+            }
         });
 
         // Subject selection
@@ -171,12 +202,219 @@ class ChatInClassFirebase {
         });
     }
 
+    checkExistingSession() {
+        const savedUser = localStorage.getItem('chatinclass_user');
+        if (savedUser) {
+            try {
+                const userData = JSON.parse(savedUser);
+                this.currentUser = { ...userData, isAuthenticated: true };
+                this.hideLoginModal();
+                this.updateUserInfo();
+                this.enableChatInput();
+                this.goOnline();
+                this.loadMessages();
+            } catch (e) {
+                localStorage.removeItem('chatinclass_user');
+                this.showLoginModal();
+            }
+        } else {
+            this.showLoginModal();
+        }
+    }
+
+    showLoginModal() {
+        document.getElementById('login-modal').style.display = 'flex';
+    }
+
+    hideLoginModal() {
+        document.getElementById('login-modal').style.display = 'none';
+    }
+
     showRoleModal() {
         document.getElementById('role-modal').style.display = 'flex';
     }
 
     hideRoleModal() {
         document.getElementById('role-modal').style.display = 'none';
+    }
+
+    switchAuthTab(tab) {
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+        
+        document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
+        document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+        
+        // Clear messages
+        document.getElementById('login-message').textContent = '';
+        document.getElementById('register-message').textContent = '';
+    }
+
+    async handleLogin() {
+        const username = document.getElementById('login-username').value.trim();
+        const password = document.getElementById('login-password').value;
+        const messageEl = document.getElementById('login-message');
+
+        if (!username || !password) {
+            this.showAuthMessage('login', 'Please enter both username and password', 'error');
+            return;
+        }
+
+        try {
+            // Check if user exists in Firebase
+            const userRef = window.firebaseRef(this.database, `accounts/${username}`);
+            const snapshot = await new Promise((resolve) => {
+                window.firebaseOnValue(userRef, resolve, { onlyOnce: true });
+            });
+
+            const userData = snapshot.val();
+            if (!userData) {
+                this.showAuthMessage('login', 'Username not found', 'error');
+                return;
+            }
+
+            // Simple password check (in production, use proper hashing)
+            if (userData.password !== password) {
+                this.showAuthMessage('login', 'Incorrect password', 'error');
+                return;
+            }
+
+            // Login successful
+            this.currentUser = {
+                username: username,
+                name: userData.name,
+                role: userData.role,
+                id: userData.id || this.generateUserId(),
+                isAuthenticated: true
+            };
+
+            // Save session
+            localStorage.setItem('chatinclass_user', JSON.stringify(this.currentUser));
+
+            this.showAuthMessage('login', 'Login successful!', 'success');
+            setTimeout(() => {
+                this.hideLoginModal();
+                this.updateUserInfo();
+                this.enableChatInput();
+                this.goOnline();
+                this.loadMessages();
+            }, 1000);
+
+        } catch (error) {
+            console.error('Login error:', error);
+            this.showAuthMessage('login', 'Login failed. Please try again.', 'error');
+        }
+    }
+
+    async handleRegister() {
+        const username = document.getElementById('register-username').value.trim();
+        const password = document.getElementById('register-password').value;
+        const name = document.getElementById('register-name').value.trim();
+        const role = document.getElementById('register-role').value;
+
+        if (!username || !password || !name || !role) {
+            this.showAuthMessage('register', 'Please fill in all fields', 'error');
+            return;
+        }
+
+        if (password.length < 6) {
+            this.showAuthMessage('register', 'Password must be at least 6 characters', 'error');
+            return;
+        }
+
+        if (username.length < 3) {
+            this.showAuthMessage('register', 'Username must be at least 3 characters', 'error');
+            return;
+        }
+
+        try {
+            // Check if username already exists
+            const userRef = window.firebaseRef(this.database, `accounts/${username}`);
+            const snapshot = await new Promise((resolve) => {
+                window.firebaseOnValue(userRef, resolve, { onlyOnce: true });
+            });
+
+            if (snapshot.val()) {
+                this.showAuthMessage('register', 'Username already exists', 'error');
+                return;
+            }
+
+            // Create new account
+            const newUser = {
+                username: username,
+                password: password, // In production, hash this!
+                name: name,
+                role: role,
+                id: this.generateUserId(),
+                createdAt: window.firebaseServerTimestamp()
+            };
+
+            await window.firebaseSet(userRef, newUser);
+
+            this.showAuthMessage('register', 'Account created successfully!', 'success');
+            
+            // Auto-login after registration
+            setTimeout(() => {
+                this.currentUser = {
+                    username: username,
+                    name: name,
+                    role: role,
+                    id: newUser.id,
+                    isAuthenticated: true
+                };
+
+                localStorage.setItem('chatinclass_user', JSON.stringify(this.currentUser));
+                this.hideLoginModal();
+                this.updateUserInfo();
+                this.enableChatInput();
+                this.goOnline();
+                this.loadMessages();
+            }, 1000);
+
+        } catch (error) {
+            console.error('Registration error:', error);
+            this.showAuthMessage('register', 'Registration failed. Please try again.', 'error');
+        }
+    }
+
+    showAuthMessage(form, message, type) {
+        const messageEl = document.getElementById(`${form}-message`);
+        messageEl.textContent = message;
+        messageEl.className = `auth-message ${type}`;
+    }
+
+    handleLogout() {
+        // Clear session
+        localStorage.removeItem('chatinclass_user');
+        
+        // Go offline
+        this.goOffline();
+        
+        // Reset user
+        this.currentUser = {
+            username: '',
+            name: '',
+            role: '',
+            id: this.generateUserId(),
+            isAuthenticated: false
+        };
+        
+        // Reset UI
+        this.showLoginModal();
+        this.disableChatInput();
+        
+        // Clear messages
+        document.getElementById('messages-container').innerHTML = '';
+        this.showWelcomeMessage();
+    }
+
+    disableChatInput() {
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-message');
+        
+        messageInput.disabled = true;
+        sendBtn.disabled = true;
+        messageInput.placeholder = 'Please sign in to chat...';
     }
 
     selectRole(role) {
@@ -249,10 +487,19 @@ class ChatInClassFirebase {
 
     updateUserInfo() {
         const userRoleElement = document.getElementById('user-role');
+        const roleToggle = document.getElementById('role-toggle');
         const roleIcon = this.currentUser.role === 'teacher' ? '👨‍🏫' : '👨‍🎓';
         const roleText = this.currentUser.role.charAt(0).toUpperCase() + this.currentUser.role.slice(1);
         
         userRoleElement.textContent = `${roleIcon} ${this.currentUser.name} (${roleText})`;
+        
+        if (this.currentUser.isAuthenticated) {
+            roleToggle.textContent = 'Logout';
+            roleToggle.className = 'logout-btn';
+        } else {
+            roleToggle.textContent = 'Switch Role';
+            roleToggle.className = 'role-btn';
+        }
     }
 
     enableChatInput() {
@@ -396,9 +643,10 @@ class ChatInClassFirebase {
             <div class="welcome-message">
                 <div class="welcome-content">
                     <h3>👋 Welcome to ${document.getElementById('current-subject').textContent}!</h3>
-                    <p>Start a conversation by typing a message below</p>
+                    <p>Sign in to start chatting with your classmates</p>
                     <p>Teachers can make announcements and ask questions</p>
                     <p>Students can ask for help and participate in discussions</p>
+                    <p>Your account saves your progress and lets you return anytime!</p>
                     <p>Messages sync in real-time across all devices via Firebase!</p>
                 </div>
             </div>

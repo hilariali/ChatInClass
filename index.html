@@ -46,7 +46,7 @@
         <header class="chatroom-header">
             <div class="header-content">
                 <h1>💬 ChatInClass</h1>
-                <p>Real-time communication between Teachers and Students</p>
+                <p>Secure real-time communication between Teachers and Students</p>
             </div>
             <div class="user-info">
                 <div class="user-role" id="user-role">Guest</div>
@@ -165,8 +165,61 @@
         </div>
     </div>
 
-    <!-- Role Selection Modal -->
-    <div class="modal-overlay" id="role-modal">
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="login-modal">
+        <div class="modal-content">
+            <h2>Welcome to ChatInClass</h2>
+            <p>Sign in to your account or create a new one:</p>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Sign In</button>
+                <button class="auth-tab" data-tab="register">Create Account</button>
+            </div>
+            
+            <!-- Login Form -->
+            <div class="auth-form" id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username:</label>
+                    <input type="text" id="login-username" placeholder="Enter your username" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" placeholder="Enter your password">
+                </div>
+                <button id="login-btn" class="auth-btn">Sign In</button>
+                <div class="auth-message" id="login-message"></div>
+            </div>
+            
+            <!-- Register Form -->
+            <div class="auth-form hidden" id="register-form">
+                <div class="form-group">
+                    <label for="register-username">Username:</label>
+                    <input type="text" id="register-username" placeholder="Choose a username" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Password:</label>
+                    <input type="password" id="register-password" placeholder="Choose a password" minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="register-name">Display Name:</label>
+                    <input type="text" id="register-name" placeholder="Your display name" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="register-role">Role:</label>
+                    <select id="register-role">
+                        <option value="">Select your role</option>
+                        <option value="teacher">👨‍🏫 Teacher</option>
+                        <option value="student">👨‍🎓 Student</option>
+                    </select>
+                </div>
+                <button id="register-btn" class="auth-btn">Create Account</button>
+                <div class="auth-message" id="register-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role Selection Modal (for existing flow) -->
+    <div class="modal-overlay hidden" id="role-modal">
         <div class="modal-content">
             <h2>Select Your Role</h2>
             <p>Choose how you want to participate in ChatInClass:</p>

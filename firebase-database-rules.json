@@ -11,6 +11,10 @@
     "typing": {
       ".read": true,
       ".write": true
+    },
+    "accounts": {
+      ".read": true,
+      ".write": true
     }
   }
 }
